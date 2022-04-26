@@ -1,5 +1,6 @@
 ﻿using System.Collections.Specialized;
 using System.Xml;
+using GetVersionNugetPackages;
 using NuGet.Common;
 using NuGet.Protocol;
 using NuGet.Protocol.Core.Types;
@@ -14,56 +15,16 @@ List<FileInfo> projects = new List<FileInfo>();
 string rootDir = @"D:/Projec_Visual_Studio/2022/My_old_microservises/"
     + "WorkTime.AuthService.WebApi-master/WorkTime.AuthService.WebApi-master";
 
-// рекурсивный метод
-void WalkFile(DirectoryInfo root)
-{
-    FileInfo[] files = null;
-    DirectoryInfo[] subDirs = null;
-    // Получаем все файлы в текущем каталоге
-    try
-    {
-        files = root.GetFiles("*.*");
-    }
-    catch (UnauthorizedAccessException e)
-    {
-        log.Add(e.Message);
-    }
-    catch (DirectoryNotFoundException e)
-    {
-        Console.WriteLine(e.Message);
-    }
-
-    if (files != null)
-    {
-        //выводим имена файлов в консоль
-        foreach (FileInfo fi in files)
-        {
-            if (fi.Name.EndsWith(".csproj"))
-            {
-                projects.Add(fi);
-                Console.WriteLine(fi.Name);
-            }
-        }
-
-        //получаем все подкаталоги
-        subDirs = root.GetDirectories();
-        //проходим по каждому подкаталогу
-        foreach (DirectoryInfo dirInfo in subDirs)
-        {
-            //РЕКУРСИЯ
-            WalkFile(dirInfo);
-        }
-    }
-}
-
-//вызываем рекурсивный метод
-WalkFile(new DirectoryInfo(rootDir));
+FileSystemWork.WalkFile(new DirectoryInfo(rootDir), ref log, ref projects, ".csproj");
 
 Console.WriteLine("Файлы, доступ к которым запрещен:");
 foreach (string s in log)
 {
     Console.WriteLine(s);
 }
+
+
+
 
 //**** Работа с XML файла проекта  **********************************************************************
 Dictionary<string, string> namesPackages = new Dictionary<string, string>();
