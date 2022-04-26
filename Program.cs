@@ -5,6 +5,8 @@ using NuGet.Protocol;
 using NuGet.Protocol.Core.Types;
 
 
+
+// ----  Работа с файловой системой -------------------------------------------
 StringCollection log = new StringCollection();
 List<FileInfo> projects = new List<FileInfo>();
 
@@ -63,7 +65,7 @@ foreach (string s in log)
     Console.WriteLine(s);
 }
 
-//**************************************************************************
+//**** Работа с XML файла проекта  **********************************************************************
 Dictionary<string, string> namesPackages = new Dictionary<string, string>();
 XmlDocument xDoc = new XmlDocument();
 foreach (var project in projects)
@@ -128,7 +130,10 @@ foreach (var project in projects)
 }
 
 Console.Read();
-//**************************************************************************
+
+
+
+//********  Получение через Api информации о Nuget пакете  ******************************************************************
 //Используйте пакет SDK NuGet . Я изменил код для отображения свойства Published.
 
 ILogger logger = NullLogger.Instance;
