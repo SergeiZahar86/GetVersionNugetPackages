@@ -1,4 +1,6 @@
-﻿namespace GetVersionNugetPackages.Models;
+﻿using System.Collections.Generic;
+
+namespace GetVersionNugetPackages.Models;
 
 /// <summary>
 /// Модель предоставляющая информацию об иследуемом проекте

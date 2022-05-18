@@ -1,4 +1,6 @@
-﻿namespace GetVersionNugetPackages.Models;
+﻿using System;
+
+namespace GetVersionNugetPackages.Models;
 
 /// <summary>
 /// Модель предоставляющая информацию о Nuget пакете
