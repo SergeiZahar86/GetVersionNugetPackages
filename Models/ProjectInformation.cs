@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.IO;
 
 namespace GetVersionNugetPackages.Models;
 
@@ -8,22 +9,22 @@ namespace GetVersionNugetPackages.Models;
 public class ProjectInformation
 {
     /// <summary>
-    /// Название проекта
+    /// Информация о файле проекта
     /// </summary>
-    private string Name { get; set; }
-    
-    /// <summary>
-    /// Путь к проекту
-    /// </summary>
-    private string Path { get; set; }
+    public FileInfo ProjectFileInfo { get; set; }
     
     /// <summary>
     /// Список Nuget пакетов
     /// </summary>
-    private IEnumerable<NugetPackage> NugetPackages { get; set; }
+    public List<NugetPackage> NugetPackages { get; set; }
+    
+    // /// <summary>
+    // /// Список Npm пакетов
+    // /// </summary>
+    // public List<NpmPackage> NpmPackages { get; set; }
     
     /// <summary>
-    /// Список Npm пакетов
+    /// Информация о возможно имеющемся в проекте файле package.json
     /// </summary>
-    private IEnumerable<NpmPackage> NpmPackages { get; set; }
+    public FileInfo PackageJsonFileInfo { get; set; }
 }

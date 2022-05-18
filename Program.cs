@@ -2,225 +2,86 @@
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.IO;
-using System.Threading;
-using System.Xml;
-using GetVersionNugetPackages;
-using NuGet.Common;
-using NuGet.Protocol;
-using NuGet.Protocol.Core.Types;
+using System.Threading.Tasks;
+using GetVersionNugetPackages.CommonLogic;
+using GetVersionNugetPackages.Models;
 
+namespace GetVersionNugetPackages;
 
-
-// ----  Работа с файловой системой -------------------------------------------
-StringCollection log = new StringCollection();
-List<FileInfo> projects = new List<FileInfo>();
-
-//задаем папку для обхода
-string rootDir = @"D:/Projec_Visual_Studio/2022/My_old_microservises/"
-    + "WorkTime.AuthService.WebApi-master/WorkTime.AuthService.WebApi-master";
-
-FileSystemWork.WalkFile(new DirectoryInfo(rootDir), ref log, ref projects, ".csproj");
-
-Console.WriteLine("Файлы, доступ к которым запрещен:");
-foreach (string s in log)
+public class Program
 {
-    Console.WriteLine(s);
-}
+    /// <summary>
+    /// Адрес репозитория
+    /// </summary>
+    private const string SourceRepository = "https://api.nuget.org/v3/index.json";
 
+    /// <summary>
+    /// Адрес исследуемой директории
+    /// </summary>
+    static string RootDir =
+        @"D:\Projec_Visual_Studio\2022\My_old_microservises\PJ1.Frontend";
 
+    /// <summary>
+    /// Искомое расширение файлов
+    /// </summary>
+    private const string FileExtension = ".csproj";
 
+    /// <summary>
+    /// Дата старше которой не должны быть Nuget и Npm пакеты
+    /// </summary>
+    private static readonly DateTime CriticalDate = new DateTime(2022, 2, 23);
 
-//**** Работа с XML файла проекта  **********************************************************************
-Dictionary<string, string> namesPackages = new Dictionary<string, string>();
-XmlDocument xDoc = new XmlDocument();
-foreach (var project in projects)
-{
-    xDoc.Load(project.FullName);
-    // получим корневой элемент
-    XmlElement? xRoot = xDoc.DocumentElement;
-    if (xRoot != null)
+    /// <summary>
+    /// Путь к файлу npm.cmd из nodejs
+    /// </summary>
+    private const string NpmCmd = @"C:\Program Files\nodejs16\npm.cmd";
+
+    /// <summary>
+    /// Путь к корневой папке веб-проекта, там где package.json и node_modules
+    /// </summary>
+    private const string WorkingDirectory =
+        @"D:\Projec_Visual_Studio\2022\My_old_microservises\PJ1.Frontend\PJ1.Frontend\PJ1.FrontByAngular\ClientApp";
+
+    /// <summary>
+    /// Имя результирующего файла для пакетов с единственной версией, в который
+    /// пишется наименование, версия и дата версии пакета.
+    /// </summary>
+    private const string ProjectsMetadataFile = "Projects_Metadata.txt";
+
+    /// <summary>
+    /// Имя временного файла, в который пишется всё дерево зависимостей пакетов.
+    /// </summary>
+    private const string LogFile = "log.txt";
+
+    static async Task Main(string[] args)
     {
-        // обход всех узлов в корневом элементе
-        foreach (XmlElement xnode in xRoot)
+        if (args.Length != 0)
         {
-            if (xnode.Name == "ItemGroup")
-            {
-                Console.WriteLine(xnode.Name);
-                foreach (XmlNode childNode in xnode.ChildNodes)
-                {
-                    Console.WriteLine(childNode.Name);
-                    if (childNode.Name == "PackageReference")
-                    {
-                        if (childNode.Attributes?.Count == 2 && childNode.Attributes[1].Name == "Version")
-                        {
-                            Console.WriteLine("dfdfdfdfdfdfdfd");
-                            
-                            
-                            foreach (XmlAttribute attribute in childNode.Attributes)
-                            {
-                                //Console.WriteLine(attribute.Name);
-                                if (attribute.Name == "Include")
-                                {
-                                    
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-
-            // получаем атрибут name
-            // XmlNode? attr = xnode.Attributes.GetNamedItem("name");
-            // Console.WriteLine(attr?.Value);
-            //
-            // // обходим все дочерние узлы элемента user
-            // foreach (XmlNode childnode in xnode.ChildNodes)
-            // {
-            //     // если узел - company
-            //     if (childnode.Name == "company")
-            //     {
-            //         Console.WriteLine($"Company: {childnode.InnerText}");
-            //     }
-            //
-            //     // если узел age
-            //     if (childnode.Name == "age")
-            //     {
-            //         Console.WriteLine($"Age: {childnode.InnerText}");
-            //     }
-            // }
+            RootDir = args[0];
         }
-    }
 
-    Console.WriteLine();
-}
+        var logFile = $"{Path.Combine(Directory.GetCurrentDirectory(), LogFile)}";
 
-Console.Read();
+        var resulFileName =
+            $"{Path.Combine(Directory.GetCurrentDirectory(), ProjectsMetadataFile)}";
 
+        StringCollection log = new StringCollection();
+        List<ProjectInformation> projects = new List<ProjectInformation>();
 
+        CommonLogic.FileSystemWork.GetProjectFiles(new DirectoryInfo(RootDir), ref log, ref projects,
+            FileExtension);
 
-//********  Получение через Api информации о Nuget пакете  ******************************************************************
-//Используйте пакет SDK NuGet . Я изменил код для отображения свойства Published.
+        CommonLogic.FileSystemWork.GetFilesPackageJson(ref projects, ref log);
 
-ILogger logger = NullLogger.Instance;
-CancellationToken cancellationToken = CancellationToken.None;
+        await NugetPackageMetadata.NugetPackageGetAndWriteMetadataToFile(projects, SourceRepository,
+            resulFileName, CriticalDate);
 
-SourceCacheContext cache = new SourceCacheContext();
-SourceRepository repository = Repository.Factory.GetCoreV3("https://api.nuget.org/v3/index.json");
-PackageMetadataResource resource = await repository.GetResourceAsync<PackageMetadataResource>();
+        await NpmPackageMetadata.NpmGetAndWriteMetadataToFile(projects, logFile, NpmCmd,
+            resulFileName, CriticalDate);
 
-IEnumerable<IPackageSearchMetadata> packages = await resource.GetMetadataAsync(
-    "IdentityModel", // заменить с требуемым идентификатором пакета
-    includePrerelease: true,
-    includeUnlisted: false,
-    cache,
-    logger,
-    cancellationToken);
+        //DataDisplay.WorkingWithConsole(projects, CriticalDate);
 
-foreach (IPackageSearchMetadata package in packages)
-{
-    Console.WriteLine($"Version: {package.Identity.Version}");
-    Console.WriteLine($"Publish date: {package.Published}");
-}
-
-Console.Read();
-
-
-// 1111
-/*
-if (Directory.Exists("C:/Users/sergei/.nuget/packages"))
-{
-    Console.WriteLine("Directory.Exists");
-    var dirs = Directory.GetDirectories("C:/Users/sergei/.nuget/packages");
-    foreach (var dir in dirs)
-    {
-        string[] words = dir.Split(new char[] { '/', '\\' });
-        Console.WriteLine(words.Last() + "   **********************************");
-        var dirsVersions = Directory.GetDirectories(dir);
-        foreach (var dirVersion in dirsVersions)
-        {
-            string[] dirV = dirVersion.Split(new char[] { '/', '\\' });
-            Console.WriteLine("    " + dirV.Last() + "  <<<");
-            var files = Directory.GetFiles(dirVersion);
-            foreach (var file in files)
-            {
-                if (file.EndsWith(".nuspec"))
-                {
-                    string[] partFile = file.Split(new char[] { '/', '\\' });
-                    Console.WriteLine("        " + partFile.Last());
-                    Console.WriteLine("        " + Directory.GetLastWriteTime(file).ToShortDateString());
-                }
-            }
-        }
-        Console.WriteLine();
-        Console.WriteLine();
-    }
-
-    Console.Read();
-}
-*/
-
-
-///2222
-
-
-//// 3333
-/*
-if (Directory.Exists("D:/Projec_Visual_Studio/2022/My_old_microservises/"
-    + "WorkTime.AuthService.WebApi-master/WorkTime.AuthService.WebApi-master"))
-{
-    Console.WriteLine("Directory Exists");
-    List<string> projects = new List<string>();
-
-    var files = Directory.GetFiles("D:/Projec_Visual_Studio/2022/"
-        + "My_old_microservises/WorkTime.AuthService.WebApi-master/"
-        + "WorkTime.AuthService.WebApi-master");
-
-    foreach (var file in files)
-    {
-        if (file.EndsWith(".csproj"))
-        {
-            projects.Add(file);
-        }
-    }
-    
-    
-    var dirs = Directory.GetDirectories("D:/Projec_Visual_Studio/2022/"
-        + "My_old_microservises/WorkTime.AuthService.WebApi-master/"
-        + "WorkTime.AuthService.WebApi-master");
-    
-    
-    
-    
-    
-    
-    
-    
-    foreach (var dir in dirs)
-    {
-        string[] words = dir.Split(new char[] { '/', '\\' });
-        Console.WriteLine(words.Last() + "   **********************************");
-        var dirsVersions = Directory.GetDirectories(dir);
-        foreach (var dirVersion in dirsVersions)
-        {
-            string[] dirV = dirVersion.Split(new char[] { '/', '\\' });
-            Console.WriteLine("    " + dirV.Last() + "  <<<");
-            files = Directory.GetFiles(dirVersion);
-            foreach (var file in files)
-            {
-                if (file.EndsWith(".nuspec"))
-                {
-                    string[] partFile = file.Split(new char[] { '/', '\\' });
-                    Console.WriteLine("        " + partFile.Last());
-                    Console.WriteLine("        " + Directory.GetLastWriteTime(file).ToShortDateString());
-                }
-            }
-        }
-        Console.WriteLine();
-        Console.WriteLine();
+        Console.WriteLine("End");
+        Console.Read();
     }
 }
-else
-{
-    Console.WriteLine("Directory not Exists");
-}
-*/
